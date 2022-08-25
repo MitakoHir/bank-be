@@ -1,8 +1,9 @@
 import bcrypt from 'bcrypt';
 import { SuperTest, Test } from 'supertest';
 
-import User  from '@models/user-model';
+import {IUser, UserCreationAttributes} from '@models/user-model';
 import userRepo from '@repos/user-repo';
+import {Model} from "sequelize";
 
 
 export const pwdSaltRounds = process.env.GEN_SALT_ROUNDS as string;
@@ -22,8 +23,11 @@ const creds = {
 function login(beforeAgent: SuperTest<Test>, done: (arg: string) => void) {
     // Setup dummy data
     const pwdHash = bcrypt.hashSync(creds.password, pwdSaltRounds);
+    const loginUser = {
+        email: creds.email,
+        password: pwdHash
+    } as unknown as Model<IUser, UserCreationAttributes> | null;
     spyOn(userRepo, 'getOne').and.returnValue(Promise.resolve(loginUser));
-    // Call Login API
     beforeAgent
         .post('/api/auth/login')
         .type('form')
@@ -34,7 +38,7 @@ function login(beforeAgent: SuperTest<Test>, done: (arg: string) => void) {
             }
             done(res.headers['set-cookie']);
         });
-};
+}
 
 
 // Export default

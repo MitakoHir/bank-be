@@ -12,7 +12,8 @@ import {BalanceValidationError, SomethingWentWrongError} from "@shared/errors";
  *
  */
 
-async function make(data: TransactionCreationAttributes): Promise<Model<ITransaction, TransactionCreationAttributes>| null> {
+async function make(data: TransactionCreationAttributes):
+    Promise<Model<ITransaction, TransactionCreationAttributes> | null> {
     try {
         return await sequelize.getInstance().transaction(
             async (t) => {

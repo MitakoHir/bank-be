@@ -1,14 +1,15 @@
 import bcrypt from 'bcrypt';
 import StatusCodes from 'http-status-codes';
-import supertest, { SuperTest, Test, Response } from 'supertest';
+import supertest, {SuperTest, Test, Response} from 'supertest';
 
 import app from '@server';
 import userRepo from '@repos/user-repo';
-import User  from '@models/user-model';
-import { cookieProps, p as paths } from '@routes/auth-router';
-import { pErr } from '@shared/functions';
-import { pwdSaltRounds } from 'spec/support/login-agent';
-import { UnauthorizedError } from '@shared/errors';
+import {IUser, UserCreationAttributes} from '@models/user-model';
+import {cookieProps, p as paths} from '@routes/auth-router';
+import {pErr} from '@shared/functions';
+import {pwdSaltRounds} from 'spec/support/login-agent';
+import {SomethingWentWrongError, UnauthorizedError} from '@shared/errors';
+import {Model} from "sequelize";
 
 
 type TReqBody = string | object | undefined;
@@ -19,7 +20,8 @@ describe('auth-router', () => {
     const authPath = '/api/auth';
     const loginPath = `${authPath}${paths.login}`;
     const logoutPath = `${authPath}${paths.logout}`;
-    const { BAD_REQUEST, OK, UNAUTHORIZED } = StatusCodes;
+    const register = `${authPath}${paths.register}`;
+    const {OK, BAD_GATEWAY} = StatusCodes;
 
     let agent: SuperTest<Test>;
 
@@ -40,11 +42,14 @@ describe('auth-router', () => {
             was successful.`, (done) => {
             // Setup Dummy Data
             const creds = {
-                email: 'jsmith@gmail.com',
+                email: 'test@example.com',
                 password: 'Password@1',
             };
             const pwdHash = hashPwd(creds.password);
-            const loginUser = User.new('john smith', creds.email, pwdHash);
+            const loginUser = {
+                email: creds.email,
+                password: pwdHash
+            } as unknown as Model<IUser, UserCreationAttributes> | null;
             spyOn(userRepo, 'getOne').and.returnValue(Promise.resolve(loginUser));
             // Call API
             callApi(creds)
@@ -57,11 +62,11 @@ describe('auth-router', () => {
         });
 
 
-        it(`should return a response with a status of ${UNAUTHORIZED} and a json with the error
-            "${UnauthorizedError.Msg}" if the email was not found.`, (done) => {
+        it(`should return a response with a status of ${BAD_GATEWAY} and a json with the error
+            "${SomethingWentWrongError.Msg}" if the email was not found.`, (done) => {
             // Setup Dummy Data
             const creds = {
-                email: 'jsmith@gmail.com',
+                email: 'test@example.com',
                 password: 'Password@1',
             };
             spyOn(userRepo, 'getOne').and.returnValue(Promise.resolve(null));
@@ -69,14 +74,16 @@ describe('auth-router', () => {
             callApi(creds)
                 .end((err: Error, res: Response) => {
                     pErr(err);
-                    expect(res.status).toBe(UNAUTHORIZED);
-                    expect(res.body.error).toBe(UnauthorizedError.Msg);
+                    expect(res.status).toBe(BAD_GATEWAY);
+                    expect(res.body.error).toBe(SomethingWentWrongError.Msg +
+                        'A user with the given email does not exists in the database.'
+                    );
                     done();
                 });
         });
 
 
-        it(`should return a response with a status of ${UNAUTHORIZED} and a json with the error
+        it(`should return a response with a status of ${BAD_GATEWAY} and a json with the error
             "${UnauthorizedError.Msg}" if the password failed.`, (done) => {
             // Setup Dummy Data
             const creds = {
@@ -84,20 +91,23 @@ describe('auth-router', () => {
                 password: 'someBadPassword',
             };
             const pwdHash = hashPwd('Password@1');
-            const loginUser = User.new('john smith', creds.email, pwdHash);
+            const loginUser = {
+                email: creds.email,
+                password: pwdHash
+            } as unknown as Model<IUser, UserCreationAttributes> | null;
             spyOn(userRepo, 'getOne').and.returnValue(Promise.resolve(loginUser));
             // Call API
             callApi(creds)
                 .end((err: Error, res: Response) => {
                     pErr(err);
-                    expect(res.status).toBe(UNAUTHORIZED);
-                    expect(res.body.error).toBe(UnauthorizedError.Msg);
+                    expect(res.status).toBe(BAD_GATEWAY);
+                    expect(res.body.error).toBe(SomethingWentWrongError.Msg + 'Login failed');
                     done();
                 });
         });
 
 
-        it(`should return a response with a status of ${BAD_REQUEST} and a json with an error
+        it(`should return a response with a status of ${BAD_GATEWAY} and a json with an error
             for all other bad responses.`, (done) => {
             // Setup Dummy Data
             const creds = {
@@ -109,7 +119,7 @@ describe('auth-router', () => {
             callApi(creds)
                 .end((err: Error, res: Response) => {
                     pErr(err);
-                    expect(res.status).toBe(BAD_REQUEST);
+                    expect(res.status).toBe(BAD_GATEWAY);
                     expect(res.body.error).toBeTruthy();
                     done();
                 });
@@ -131,7 +141,7 @@ describe('auth-router', () => {
 
 
     function hashPwd(pwd: string) {
-        return bcrypt.hashSync(pwd, pwdSaltRounds);
+        return bcrypt.hashSync(pwd, parseInt(pwdSaltRounds));
     }
 });
 

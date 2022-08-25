@@ -50,7 +50,8 @@ export class UserAlreadyExistError extends CustomError {
 }
 
 export class BalanceValidationError extends CustomError {
-    public static readonly Msg = 'Failed to perform transaction. The balance can not be less than 0';
+    public static readonly Msg = '' +
+        'Failed to perform transaction. The balance can not be less than 0';
     public static readonly HttpStatus = HttpStatusCodes.BAD_REQUEST;
 
     constructor() {
