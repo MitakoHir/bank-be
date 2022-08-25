@@ -2,3 +2,4 @@ node_modules
 # ideally should ignored and created on local machine instead
 #*.env
 .idea
+dist
